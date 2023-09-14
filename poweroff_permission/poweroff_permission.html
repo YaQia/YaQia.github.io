@@ -1,53 +1,72 @@
-<h1>在Arch Linux中，普通用户也可以直接使用poweroff，是如何实现的？</h1>
-<h2>个人探索过程</h2>
-<p>首先通过</p>
-<pre><code class="language-bash">which poweroff | xargs file
-</code></pre>
-<p>发现了poweroff的文件类型是<code>systemctl</code>的软链接：</p>
-<pre><code class="language-bash">/usr/bin/poweroff: symbolic link to systemctl
-</code></pre>
-<p>而<code>systemctl</code>则是一个在<code>/usr/bin</code>目录下、普通用户拥有可执行权限的指令</p>
-<p>在此时突然想到了尝试用<code>strace</code>了解其详细调用过程，但执行后发现其中没有特殊的syscall，大多是常见的系统函数</p>
-<p>由于<code>systemctl</code>是管理系统服务的，故而又想到了尝试搜索poweroff.service</p>
-<pre><code class="language-bash">~ &gt; locate poweroff.service
-/usr/lib/systemd/system/systemd-poweroff.service
-/usr/share/man/man8/systemd-poweroff.service.8.gz
-</code></pre>
-<blockquote>
-<p>按照以往使用systemctl的常识，对服务的开启和关闭应当是root用户的权限，但在此处普通用户不使用sudo提权就能poweroff，这是为什么？</p>
-</blockquote>
-<h2>查找资料</h2>
-<p>通过查阅资料发现<a href="https://unix.stackexchange.com/questions/209766/what-are-the-default-polkit-privileges-on-arch-linux-for-shutdown-halt-etc-a">一篇解释</a></p>
-<p>资料中提及了如下内容：</p>
-<blockquote>
-<p>Commands <code>poweroff</code> and <code>reboot</code> work in two steps:</p>
-<p>if invoked under a non-root-user and logind is available, logind is asked to perform the action, using polkit actions org.freedesktop.login1.*;</p>
-</blockquote>
-<p>它会利用logind守护进程利用<code>polkit</code>来执行些什么</p>
-<p><a href="https://wiki.archlinux.org/title/Polkit">那<code>polkit</code>是什么？</a></p>
-<blockquote>
-<p>polkit提供了非特权进程向特权进程通信的方法，它以action的方式进行通信</p>
-<p>常见的action组中就包括了systemd-logind守护进程的actions</p>
-<p>每一个action都以一个.policy文件来定义</p>
-</blockquote>
-<p>查找资料至此，已经能够确定如何查看action内部信息了</p>
-<pre><code class="language-bash">~ &gt; locate org.freedesktop.login1.policy | xargs file
-/usr/share/polkit-1/actions/org.freedesktop.login1.policy: XML 1.0 document, ASCII text
-</code></pre>
-<p>可以发现它是XML文档，其中的action定义了相关的内容</p>
-<pre><code class="language-xml">&lt;action id=&quot;org.freedesktop.login1.inhibit-block-shutdown&quot;&gt;
-        &lt;description gettext-domain=&quot;systemd&quot;&gt;Allow applications to inhibit system shutdown&lt;/description&gt;
-        &lt;message gettext-domain=&quot;systemd&quot;&gt;Authentication is required for an application to inhibit system shutdown.&lt;/message&gt;
-        &lt;defaults&gt;
-                &lt;allow_any&gt;no&lt;/allow_any&gt;
-                &lt;allow_inactive&gt;yes&lt;/allow_inactive&gt;
-                &lt;allow_active&gt;yes&lt;/allow_active&gt;
-        &lt;/defaults&gt;
-        &lt;annotate key=&quot;org.freedesktop.policykit.imply&quot;&gt;org.freedesktop.login1.inhibit-delay-shutdown org.freedesktop.login1.inhibit-block-sleep org.freedesktop.login1.inhibit-delay-sleep org.freedesktop.login1.inhibit-block-idle&lt;/annotate&gt;
-&lt;/action&gt;
-</code></pre>
-<p>继续在Arch Wiki中查找得到了allow_any、allow_inactive、allow_active设置选项的解释：</p>
-<blockquote>
-<p>Both <code>inactive</code> and <code>active</code> here refer to local sessions on local consoles or displays, whereas the <code>allow_any</code> setting is used for all others, including remote sessions (SSH, VNC, etc.).</p>
-</blockquote>
-<p>如此一来，就能完整地解释一个桌面普通用户为什么能本地直接poweroff，而服务器的远程ssh普通用户则没有这个权限</p>
+<head>
+    <title>Ya Qia's Blog</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" />
+    <link href='https://fonts.googleapis.com/css?family=Fira Code' rel='stylesheet' />
+    <link href="../styles/style.css" rel="stylesheet" />
+</head>
+
+<body>
+    <h1>poweroff无需权限，是如何实现的？</h1>
+    <h2>个人探索过程</h2>
+    <p>首先通过</p>
+    <pre><code class="language-bash">which poweroff | xargs file
+        </code></pre>
+    <p>发现了poweroff的文件类型是<code>systemctl</code>的软链接：</p>
+    <pre><code class="language-bash">/usr/bin/poweroff: symbolic link to systemctl
+        </code></pre>
+    <p>而<code>systemctl</code>则是一个在<code>/usr/bin</code>目录下、普通用户拥有可执行权限的指令</p>
+    <p>在此时突然想到了尝试用<code>strace</code>了解其详细调用过程，但执行后发现其中没有特殊的syscall，大多是常见的系统函数</p>
+    <p>由于<code>systemctl</code>是管理系统服务的，故而又想到了尝试搜索poweroff.service</p>
+    <pre><code class="language-bash">~ &gt; locate poweroff.service
+            /usr/lib/systemd/system/systemd-poweroff.service
+            /usr/share/man/man8/systemd-poweroff.service.8.gz
+        </code></pre>
+    <blockquote>
+        <p>按照以往使用systemctl的常识，对服务的开启和关闭应当是root用户的权限，但在此处普通用户不使用sudo提权就能poweroff，这是为什么？</p>
+    </blockquote>
+    <h2>查找资料</h2>
+    <p>通过查阅资料发现<a
+            href="https://unix.stackexchange.com/questions/209766/what-are-the-default-polkit-privileges-on-arch-linux-for-shutdown-halt-etc-a">一篇解释</a>
+    </p>
+    <p>资料中提及了如下内容：</p>
+    <blockquote>
+        <p>Commands <code>poweroff</code> and <code>reboot</code> work in two steps:</p>
+        <p>if invoked under a non-root-user and logind is available, logind is asked to perform the action, using polkit
+            actions org.freedesktop.login1.*;</p>
+    </blockquote>
+    <p>它会利用logind守护进程利用<code>polkit</code>来执行些什么</p>
+    <p><a href="https://wiki.archlinux.org/title/Polkit">那<code>polkit</code>是什么？</a></p>
+    <blockquote>
+        <p>polkit提供了非特权进程向特权进程通信的方法，它以action的方式进行通信</p>
+        <p>常见的action组中就包括了systemd-logind守护进程的actions</p>
+        <p>每一个action都以一个.policy文件来定义</p>
+    </blockquote>
+    <p>查找资料至此，已经能够确定如何查看action内部信息了</p>
+    <pre><code class="language-bash">~ &gt; locate org.freedesktop.login1.policy | xargs file
+            /usr/share/polkit-1/actions/org.freedesktop.login1.policy: XML 1.0 document, ASCII text
+        </code></pre>
+    <p>可以发现它是XML文档，其中的action定义了相关的内容</p>
+    <pre><code class="language-xml">&lt;action id=&quot;org.freedesktop.login1.inhibit-block-shutdown&quot;&gt;
+            &lt;description gettext-domain=&quot;systemd&quot;&gt;Allow applications to inhibit system
+            shutdown&lt;/description&gt;
+            &lt;message gettext-domain=&quot;systemd&quot;&gt;Authentication is required for an application to inhibit
+            system shutdown.&lt;/message&gt;
+            &lt;defaults&gt;
+            &lt;allow_any&gt;no&lt;/allow_any&gt;
+            &lt;allow_inactive&gt;yes&lt;/allow_inactive&gt;
+            &lt;allow_active&gt;yes&lt;/allow_active&gt;
+            &lt;/defaults&gt;
+            &lt;annotate
+            key=&quot;org.freedesktop.policykit.imply&quot;&gt;org.freedesktop.login1.inhibit-delay-shutdown
+            org.freedesktop.login1.inhibit-block-sleep org.freedesktop.login1.inhibit-delay-sleep
+            org.freedesktop.login1.inhibit-block-idle&lt;/annotate&gt;
+            &lt;/action&gt;
+        </code></pre>
+    <p>继续在Arch Wiki中查找得到了allow_any、allow_inactive、allow_active设置选项的解释：</p>
+    <blockquote>
+        <p>Both <code>inactive</code> and <code>active</code> here refer to local sessions on local consoles or
+            displays, whereas the <code>allow_any</code> setting is used for all others, including remote sessions (SSH,
+            VNC, etc.).</p>
+    </blockquote>
+    <p>如此一来，就能完整地解释一个桌面普通用户为什么能本地直接poweroff，而服务器的远程ssh普通用户则没有这个权限</p>
+</body>
