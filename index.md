@@ -6,4 +6,6 @@
 
 ## Projects
 
-[配置相关问题](./k8s/configs.md)
+### [k8s](./k8s/index.md)
+
+### [go语言](./go/index.md)
