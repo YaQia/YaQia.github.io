@@ -2,4 +2,8 @@
 
 ## 配置问题
 
-[配置相关问题](./k8s/configs.md)
+[配置相关问题](./configs.md)
+
+## 底层技术
+
+[namespace&cgroups](./namespace&cgroups.md)
