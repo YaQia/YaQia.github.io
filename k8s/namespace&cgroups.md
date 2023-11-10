@@ -25,6 +25,7 @@
 - `user namespace`: 在其中的进程拥有自定义的/独占的`User IDs`和`Group IDs`，并可以使得一个进程在其特定的`user namespace`中拥有root权限（在其他`user namespace`中不一定）
 - `process ID namespace`: 在其中的进程拥有自定义/独占的`Process IDs`，在新的`PID namespace`中创建的第一个进程拥有`PID 1`，此后创建的为`PID 2`、`PID 3`......
   > 注：在当前`PID namespace`(`a`)创建一个子进程`p`并将进程`p`作为新`PID namespace`(`b`)的第一个进程，那么`p`在`b`中拥有`PID 1`，并且在`a`中拥有它原本的PID
+  
   > 另：一个有趣的事实：基础的namespace隔离性很差。虽然它能保证独立的PID体系，但`/proc`却可能可以直接访问到外部的进程信息（见下文）
 - `network namespace`: 在其中的进程拥有一个独立的网络协议栈，包括路由表、IP地址、套接字、防火墙等网络资源
 - `mount namespace`: 在其中的进程拥有一个独立的挂载点列表，这就使得在一个`mount namespace`中挂载和解挂载不会影响主文件系统
@@ -140,7 +141,7 @@ int main() {
 
 ### 2.1 定义
 
-cgroups出现的时间比namespace要早一些，它提供了对一系列进程的资源（CPU、内存、硬盘I/O、网络等）的限制、管理、隔离
+cgroups提供了对一系列进程的资源（CPU、内存、硬盘I/O、网络等）的限制、管理、隔离
 
 ### 2.2 特征
 
@@ -154,14 +155,14 @@ cgroups出现的时间比namespace要早一些，它提供了对一系列进程�
 
 #### 2.3.1 打印cgroups树
 
-对于使用`systemd`的Linux系统，可以使用下面的命令：
+对于使用`systemd`的Linux系统，cgroups由`systemd`接管，可以使用下面的命令：
 
 ```bash
 # systemctl status
 systemd-cgls
 ```
 
-> 注：cgroups本身是由进程组织的（`/proc`中每个进程都有独立的cgroup文件系统），但是systemd是以service、slice等脚本文件将重要程序的启动顺序和执行依赖等信息管理，并将这些脚本文件本身生成一个依赖关系树，进而将cgroup变为这些脚本文件的内容、组织为cgroups树
+> 注：cgroups本身是由多个资源Hierachy（如CPU、内存等）及单个Hierachy中的依赖关系组织的多个树形结构，但是systemd是以service、slice等脚本文件将重要程序的启动顺序和执行依赖等信息管理，并将这些脚本文件本身生成一个依赖关系树，进而将cgroup变为这些脚本文件的内容、组织为cgroups树
 
 #### 2.3.2 cgroup资源占用显示
 
@@ -213,7 +214,7 @@ k8s中也有一个概念叫作namespace，它和Linux中的namespace一样么？
 
 ### 4.1 定义
 
-它与Linux中的namespace类似，提供了对资源的隔离，将同一集群中资源划分为相互隔离的组。同一namespace资源名称唯一。
+它与Linux中的namespace类似，提供了对k8s资源的隔离，将同一集群中资源划分为相互隔离的组。同一namespace资源名称唯一。
 
 > 注：k8s里的资源指的是k8s对象，几乎可以说所有的在配置清单上的都是资源对象。
 
