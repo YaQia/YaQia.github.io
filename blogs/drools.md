@@ -24,7 +24,7 @@
        </dependency>
    ```
 
-   > 注：`mvn`执行完成后pom.xml无须额外配置3. Java代码适配4. drl源代码
+   > 注：`mvn`执行完成后pom.xml无须额外配置
 
 3. Java源码适配Drools
 4. DRL源码
