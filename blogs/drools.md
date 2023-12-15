@@ -9,47 +9,48 @@
 
 1. 以maven自动构建工具构建的Java项目
 
-```bash
-mvn archetype:generate -DarchetypeGroupId=org.kie -DarchetypeArtifactId=kie-drools-exec-model-ruleunit-archetype -DarchetypeVersion=8.44.0.Final
-```
+   ```bash
+   mvn archetype:generate -DarchetypeGroupId=org.kie -DarchetypeArtifactId=kie-drools-exec-model-ruleunit-archetype -DarchetypeVersion=8.44.0.Final
+   ```
 
 2. pom.xml配置
+
    在pom.xml中可以看到如下内容：
 
-```xml
-    <dependency>
-      <groupId>org.drools</groupId>
-      <artifactId>drools-ruleunits-engine</artifactId>
-    </dependency>
-```
+   ```xml
+       <dependency>
+         <groupId>org.drools</groupId>
+         <artifactId>drools-ruleunits-engine</artifactId>
+       </dependency>
+   ```
 
-> 注：`mvn`执行完成后pom.xml无须额外配置3. Java代码适配4. drl源代码
+   > 注：`mvn`执行完成后pom.xml无须额外配置3. Java代码适配4. drl源代码
 
 3. Java源码适配Drools
 4. DRL源码
 
-```drools
-package
-unit
+   ```drools
+   package
+   unit
 
-import
+   import
 
-declare   // Optional
+   declare   // Optional
 
-query  // Optional
+   query  // Optional
 
-rule "rule name"
-    // Attributes
-    when
-        // [Conditions](#Conditions)
-    then
-        // [Actions](#Actions)
-end
+   rule "rule name"
+       // Attributes
+       when
+           // [Conditions](#Conditions)
+       then
+           // [Actions](#Actions)
+   end
 
-rule "rule2 name"
+   rule "rule2 name"
 
-...
-```
+   ...
+   ```
 
 5. Java测试代码
 
@@ -157,6 +158,7 @@ end
 > 另注：如果使用Drools 7，将会涉及复杂的KIE配置，本文不涉及相关内容，网络上有大量相关内容
 
 - 最后写一个测试代码，如下所示：
+
 ```java
 package org.example;
 
