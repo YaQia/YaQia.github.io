@@ -178,17 +178,21 @@ end
 #### 匹配条件
 
 在DRL代码的`when`中写入的就是匹配规则，常见的有如下操作符：
-| 操作符 | 解释 | 用例 |
-| ----- | -------- | -------- |
-| # |子类匹配|/persons # Student（表示匹配Person类对象persons中是Student子类的）|
-| ==|相等|/persons\[ age == 50 \]（表示Person中age成员为50的，对于私有成员会自动调用getAge()方法）|
-| !=|不等|/persons\[ age != 50 \]|
-|matches|正则匹配| /persons\[ country matches "(USA)?\\\\S\*UK" \]|
-|not matches|...|...|
-|contains|数组(Array)/集合(Collection)包含| /familyTree\[ countries contains "UK" \]|
-|not contains|...|...|
-|memberOf|数组(Array)/集合(Collection)成员| /familyTree\[ person memberOf $europeanDescendants \]|
-|not memberOf|...|...|
+
+| 操作符       | 解释                 | 用例                                                  |
+| ------------ | -------------------- | ----------------------------------------------------- |
+| \#           | 子类匹配             | `/persons # Student`                                  |
+| \=\=         | 相等                 | `/persons[ age == 50 ]`                               |
+| \!\=         | 不等                 | `/persons[ age != 50 ]`                               |
+| matches      | 正则匹配             | `/persons[ country matches "(USA)?\\S*UK" ]`          |
+| not matches  | ...                  | ...                                                   |
+| contains     | Array/Collection包含 | `/familyTree[ countries contains "UK" ]`              |
+| not contains | ...                  | ...                                                   |
+| memberOf     | Array/Collection成员 | `/familyTree[ person memberOf $europeanDescendants ]` |
+| not memberOf | ...                  | ...                                                   |
+
+> 注：`/persons # Student`表示匹配Person类对象persons中是Student子类的
+> 另注：`/persons[ age == 50 ]`表示Person中age成员为50的，对于私有成员会自动调用getAge\(\)方法
 
 #### 条件连接
 
