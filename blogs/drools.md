@@ -153,7 +153,51 @@ end
 ```
 
 > 注：本教程使用的Drools 8新语法，Drools 8完全兼容Drools 7的语法
+
 > 另注：如果使用Drools 7，将会涉及复杂的KIE配置，本文不涉及相关内容，网络上有大量相关内容
+
+- 最后写一个测试代码，如下所示：
+```java
+package org.example;
+
+import org.drools.ruleunits.api.RuleUnitInstance;
+import org.drools.ruleunits.api.RuleUnitProvider;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+
+public class RuleTest {
+    @Test
+    public void test() {
+        OrderUnit orderUnit = new OrderUnit();
+        RuleUnitInstance<OrderUnit> instance = RuleUnitProvider.get().createRuleUnitInstance(orderUnit);
+        Order[] requests = new Order[3];
+        requests[0] = new Order(256, 100);
+        requests[1] = new Order(99, 200);
+        requests[2] = new Order(501, 300);
+        try {
+            for (Order request : requests) {
+                orderUnit.getOrders().add(request);
+            }
+            instance.fire();
+            for (int i = 0; i < 3; i++) {
+                if (requests[i].getAmount() < 100) {
+                    assertEquals((int)orderUnit.getUpdatedCredit().get(i), requests[i].getCredit());
+                } else if (requests[i].getAmount() < 500) {
+                    assertEquals((int)orderUnit.getUpdatedCredit().get(i), requests[i].getCredit() + 100);
+                } else if (requests[i].getAmount() < 1000) {
+                    assertEquals((int)orderUnit.getUpdatedCredit().get(i), requests[i].getCredit() + 300);
+                } else {
+                    assertEquals((int)orderUnit.getUpdatedCredit().get(i), requests[i].getCredit() + 1000);
+                }
+            }
+        } finally {
+            System.out.println("Exited...");
+            instance.close();
+        }
+    }
+}
+```
 
 ## drools详细语法描述
 
@@ -192,6 +236,7 @@ end
 | not memberOf | ...                  | ...                                                   |
 
 > 注：`/persons # Student`表示匹配Person类对象persons中是Student子类的
+
 > 另注：`/persons[ age == 50 ]`表示Person中age成员为50的，对于私有成员会自动调用getAge\(\)方法
 
 #### 条件连接
