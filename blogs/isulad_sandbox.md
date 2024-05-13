@@ -40,13 +40,17 @@ message RunPodSandboxRequest {
 
 ![](../pic/blogs/sandbox_module.svg)
 
-其中RunPodSandbox就是申请创建一个pod所需要的资源并运行这个pod的过程
+其中RunPodSandbox就是申请创建一个pod所需要的资源并运行这个pod的过程，**将该过程详细分析，就能理解沙箱具体在维护什么**
 
 ## RunPodSandbox
 
 入口通过gRPC定义来实现，客户端以gRPC的方式调用服务
 
 ![](../pic/blogs/isulad_sandbox_1.png)
+
+下面将`m_rService->RunPodSandbox`拆分为如下图右半部分所示的调用过程逐一分析
+
+![](../pic/blogs/RunPodSandbox.svg)
 
 ### PrepareSandboxData
 
