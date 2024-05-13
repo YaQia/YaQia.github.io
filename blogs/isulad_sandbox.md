@@ -64,7 +64,7 @@ message RunPodSandboxRequest {
 
 ### PrepareSandboxCheckpoint
 
-该方法将配置文件生成为json格式的checkpoint，其中会有哈希值校验过程，防止出现错误的配置
+该方法将配置文件生成为json格式的checkpoint，其中会有哈希值校验过程，防止出现被篡改的配置
 
 ### UpdateSandboxConfig 
 
@@ -166,3 +166,31 @@ void PodSandboxManagerService::SetupSandboxNetwork(const std::shared_ptr<sandbox
     DEBUG("set %s ready", sandbox->GetId().c_str());
 }
 ```
+
+网络插件管理会使用`SetupPod`创建该pod的网络
+
+### sandbox->Save
+
+将sandbox的各种数据保存到硬盘中
+
+分为`SaveState`、`SaveMetadata`和`SaveNetworkSetting`
+
+`SaveState`完成了状态保存（包括何时创建、何时退出、何时更新、pod id、当前状态），将sandbox的状态生成JSON格式写入文件中
+
+`SaveMetadata`保存id、Pod名、运行时、sandboxer、网络模式、net namespace的路径等等
+
+`SaveNetworkSetting`保存网络设置配置信息（字符串形式）
+
+### sandbox->Create
+
+会利用Sandbox对象已有的参数，调用Controller类的Create方法创建sandbox，如果是shim则使用ShimController::Create创建（Controller是基类），最终交由isulad的全局executor（`g_isulad_service_executor->container.create()`）以rpc的方式完成sandbox创建
+
+以创建容器的rpc请求创建sandbox，实际上isulad中executor唯一的调用模块就是container，container模块再调用各种运行时（lxc、runc、qemu stratovirt）完成创建
+
+### sandbox->UpdateNetworkSettings
+
+将`SetupSandboxNetwork`中得到的网络设置利用sandbox持久化到硬盘中
+
+### sandbox->Start
+
+调用`Controller`的Start方法，最终会调用`ShimController`的Start，最终同样调用了executor的接口（`g_isulad_service_executor->container.start()`）完成启动容器
