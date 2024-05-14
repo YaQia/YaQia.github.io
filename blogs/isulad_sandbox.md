@@ -189,6 +189,64 @@ void PodSandboxManagerService::SetupSandboxNetwork(const std::shared_ptr<sandbox
 
 会利用Sandbox对象已有的参数，调用Controller类的Create方法创建sandbox，如果是shim则使用ShimController::Create创建（Controller是基类），最终交由isulad的全局executor（`g_isulad_service_executor->container.create()`）以rpc的方式完成sandbox创建
 
+```cpp
+  auto Sandbox::Create(Errors &error) -> bool
+  {
+      struct ControllerCreateParams params;
+
+      // currently, params.mounts is unused.
+      params.config = m_sandboxConfig;
+      params.netNSPath = m_netNsPath;
+      params.sandboxName = m_name;
+      params.image = m_image;
+      params.netMode = m_netMode;
+      params.runtime = GetRuntime();
+      params.sandboxer = GetSandboxer();
+      params.hostname = m_sandboxConfig->hostname();
+      /// ...
+
+      if (!m_controller->Create(m_id, params, error)) {
+        /// ...
+          return false;
+      }
+
+      return true;
+  }
+```
+```cpp
+bool ShimController::Create(const std::string &sandboxId,
+                            const ControllerCreateParams &params,
+                            Errors &error)
+{
+    if (m_cb == nullptr || m_cb->container.create == nullptr) {
+        ERROR("Unimplemented callback");
+        error.SetError("Unimplemented callback");
+        return false;
+    }
+
+    auto requestWrapper = GenerateSandboxCreateContainerRequest(sandboxId, params, error);
+    if (error.NotEmpty()) {
+        return false;
+    }
+
+    container_create_response *response {nullptr};
+    int ret = m_cb->container.create(requestWrapper->get(), &response);
+    auto responseWrapper = makeUniquePtrCStructWrapper<container_create_response>(response, free_container_create_response);
+
+    if (ret != 0) {
+        if (response != nullptr && (response->errmsg != nullptr)) {
+            ERROR("Failed to call create container callback: %s", response->errmsg);
+            error.SetError(response->errmsg);
+        } else {
+            ERROR("Failed to call create container callback");
+            error.SetError("Failed to call create container callback");
+        }
+    }
+
+    return error.Empty();
+}
+```
+
 以创建容器的rpc请求创建sandbox，实际上isulad中executor唯一的调用模块就是container，container模块再调用各种运行时（lxc、runc、qemu stratovirt）完成创建
 
 ### sandbox->UpdateNetworkSettings
