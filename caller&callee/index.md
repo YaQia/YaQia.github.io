@@ -51,7 +51,6 @@ ftrace的function_graph相关调用栈如下所示：
  15) + 20.704 us   |  }
  15)   0.190 us    |  // ...
  15) + 27.971 us   |}
-}
 ```
 
 下面我们来看看`try_to_wake_up`的详细逻辑：
@@ -259,9 +258,12 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 
 #### CPU干扰下`select_idle_sibling`选核调用`cpus_share_cache`频次下降的分析
 
+`cpus_share_cache`是用于判断两个核是否共享LLC缓存的函数，主要是在条件判断中被调用。
+其他条件逻辑与该条件时，只要前面的条件不满足就不会调用`cpus_share_cache`（逻辑短路）。
+
 在`select_idle_sibling`中，`cpus_share_cache`的调用主要有三处：
 
-1. 选`prev`对应的CPU的情况，判断`prev`是否和`target`共享LLC缓存
+- 选`prev`对应的CPU的情况，判断`prev`是否和`target`共享LLC缓存
 
 ```c
 	/*
@@ -273,7 +275,7 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 		return prev;
 ```
 
-2. 任务的`recent_used_cpu`并非`prev`和`target`的情况，判断`recent_used_cpu`和`target`是否共享LLC
+- 任务的`recent_used_cpu`并非`prev`和`target`的情况，判断`recent_used_cpu`和`target`是否共享LLC
 
 ```c
 	/* Check a recently used CPU as a potential idle candidate: */
@@ -289,7 +291,7 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 	}
 ```
 
-3. 开启超线程后，没有idle状态的核的前提下，获得`prev`核的超线程，判断`prev`和`target`是否共享LLC
+- 开启超线程后，没有idle状态的核的前提下，获得`prev`核的超线程，判断`prev`和`target`是否共享LLC
 
 ```c
 	if (sched_smt_active()) {
@@ -319,64 +321,98 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 
 ### `psi_task_change`调用变频繁的分析
 
-`try_to_wake_up`的源代码：
-
-```c
-static int
-try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
-{
-	unsigned long flags;
-	int cpu, success = 0;
-
-	preempt_disable();
-	// ...
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	/// 前面有一些快速路径，当wake_flags不匹配以及一些特殊情况时，会直接跳到out或者unlock处，这里忽略这部分代码
-
-#ifdef CONFIG_SMP
-	/// 有一些确保内存一致性的代码，与要分析的内容无关，这里忽略
-
-	/// ...
-
-	/// 当任务p在被调出过程中（尚未被调出），且任务p原本的CPU相对空闲（或该CPU与当前CPU不共享cache），则直接将任务移交给任务p原本的CPU
-	if (smp_load_acquire(&p->on_cpu) &&
-			ttwu_queue_wakelist(p, task_cpu(p), wake_flags))
-		goto unlock;
-
-	/// 如果任务p在被调出过程中，则等待该调度完成再继续
-	smp_cond_load_acquire(&p->on_cpu, !VAL);
-
-	cpu = select_task_rq(p, p->wake_cpu, wake_flags | WF_TTWU);
-	if (task_cpu(p) != cpu) {
-		if (p->in_iowait) {
-			delayacct_blkio_end(p);
-			atomic_dec(&task_rq(p)->nr_iowait);
-		}
-
-		wake_flags |= WF_MIGRATED;
-		psi_ttwu_dequeue(p);
-		set_task_cpu(p, cpu);
-	}
-#else
-	cpu = task_cpu(p);
-#endif /* CONFIG_SMP */
-
-	ttwu_queue(p, cpu, wake_flags);
-unlock:
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-out:
-	if (success)
-		ttwu_stat(p, task_cpu(p), wake_flags);
-	preempt_enable();
-
-	return success;
-}
-```
-
 PSI是Pressure Stall Information。它是内核中的一个性能分析工具。
 
 以任务的粒度，在存在其他任务CPU争用、内存缺页、IO阻塞、irq阻塞等瓶颈时会统计记录系统中存在的被阻塞任务数。
 
-`psi_task_change`的调用增加，就是在有更多任务的压力下，CPU被其他BE任务频繁争用，进而导致计数器更新（即psi_task_change）
+在`try_to_wake_up`的相关调用栈中，`ttwu_queue`内会调用`psi_task_change`。故而重点分析`ttwu_queue`的内部逻辑。
 
-具体来说，在目标cpu相对空闲的情况下，`ttwu_queue`会直接迁移
+```c
+static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
+{
+	struct rq *rq = cpu_rq(cpu);
+	struct rq_flags rf;
+
+	if (ttwu_queue_wakelist(p, cpu, wake_flags))
+		return;
+
+	rq_lock(rq, &rf);
+	update_rq_clock(rq);
+	ttwu_do_activate(rq, p, wake_flags, &rf);
+	rq_unlock(rq, &rf);
+}
+```
+
+其中`ttwu_do_activate`内部调用了`psi_task_change`，所以，`psi_task_change`的调用频次高低，关键在于if判断条件`ttwu_queue_wakelist`是否为true。
+
+在进入代码解释前，可以先从实验入手分析结果。
+下图的数据提供了在没有干扰和CPU干扰下`ttwu_do_activate`和`ttwu_queue_wakelist`的调用相对于`ttwu_queue`的占比：
+
+![](../pic/caller&callee/3.png)
+
+从4s到13s之间是加入了CPU干扰的情况，可以看出，`ttwu_queue_wakelist`的调用占比没有明显变化，但`ttwu_do_activate`调用占比明显增加。
+
+这说明`ttwu_queue_wakelist`是相对CPU干扰不敏感的调用，而`ttwu_do_activate`/`psi_task_change`则是CPU干扰敏感的。
+
+从源码层面分析可以得出这个数据的原因：
+
+```c
+/// 简单来说：当目标CPU空闲或目标CPU与当前CPU不共享LLC，则迁移，返回true
+static inline bool ttwu_queue_cond(struct task_struct *p, int cpu)
+{
+	/*
+	 * Do not complicate things with the async wake_list while the CPU is
+	 * in hotplug state.
+	 */
+	if (!cpu_active(cpu))
+		return false;
+
+	/* Ensure the task will still be allowed to run on the CPU. */
+	if (!cpumask_test_cpu(cpu, p->cpus_ptr))
+		return false;
+
+	/*
+	 * If the CPU does not share cache, then queue the task on the
+	 * remote rqs wakelist to avoid accessing remote data.
+	 */
+	if (!cpus_share_cache(smp_processor_id(), cpu))
+		return true;
+
+	if (cpu == smp_processor_id())
+		return false;
+
+	/*
+	 * If the wakee cpu is idle, or the task is descheduling and the
+	 * only running task on the CPU, then use the wakelist to offload
+	 * the task activation to the idle (or soon-to-be-idle) CPU as
+	 * the current CPU is likely busy. nr_running is checked to
+	 * avoid unnecessary task stacking.
+	 *
+	 * Note that we can only get here with (wakee) p->on_rq=0,
+	 * p->on_cpu can be whatever, we've done the dequeue, so
+	 * the wakee has been accounted out of ->nr_running.
+	 */
+	if (!cpu_rq(cpu)->nr_running)
+		return true;
+
+	return false;
+}
+static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
+{
+	if (sched_feat(TTWU_QUEUE) && ttwu_queue_cond(p, cpu)) {
+		sched_clock_cpu(cpu); /* Sync clocks across CPUs */
+		__ttwu_queue_wakelist(p, cpu, wake_flags);
+		return true;
+	}
+
+	return false;
+}
+```
+
+显然，当目标CPU忙碌时，`ttwu_queue_cond`返回false概率更大，也就降低了迁移发生的概率，导致进入`ttwu_do_activate`而触发`psi_task_change`。
+
+## 参考文档
+
+[Facebook的PSI文档](https://facebookmicrosites.github.io/psi/docs/overview)
+
+[select_task_rq_fair的分析](http://www.wowotech.net/process_management/task_placement.html)
