@@ -12,7 +12,7 @@
 
 ![](../pic/caller&callee/1.png)
 
-- 如下图所示，左半`select_idle_cpu`调用占比上升、`cpus_share_cache`调用占比下降的部分是发生CPU干扰，右半`select_idle_cpu`和`cpus_share_cache`调用占比均提升的部分是发生了LLC干扰。在CPU干扰时，`select_idle_sibling`选目标核时会产生明显的`select_idle_cpu`调用次数的上升，达到几乎100%。
+- 如下图所示，图中展示了`select_idle_sibling`调用的两个关键函数的调用占比在干扰影响下变化，左半`select_idle_cpu`调用占比上升、`cpus_share_cache`调用占比下降的部分是发生CPU干扰，右半`select_idle_cpu`和`cpus_share_cache`调用占比均提升的部分是发生了LLC干扰。在CPU干扰时，`select_idle_sibling`选目标核时会产生明显的`select_idle_cpu`调用次数的上升，达到几乎100%。
 
 ![](../pic/caller&callee/2.png)
 
@@ -413,6 +413,10 @@ static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
 
 ## 参考文档
 
+[CFS负载均衡概述](http://www.wowotech.net/process_management/load_balance.html)
+
 [Facebook的PSI文档](https://facebookmicrosites.github.io/psi/docs/overview)
+
+[PSI原理解析与应用](https://www.cnblogs.com/Linux-tech/p/12961296.html)
 
 [select_task_rq_fair的分析](http://www.wowotech.net/process_management/task_placement.html)
