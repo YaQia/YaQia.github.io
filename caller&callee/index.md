@@ -8,13 +8,13 @@
 
 ## 可行性分析
 
-- 如下图所示，左半是发生CPU干扰时的调用占比，右半是没有CPU干扰时的调用占比。发生干扰时，`psi_task_change`内会更频繁地发生`psi_group_change`的调用，使得`psi_task_change`作为caller占`psi_group_change`的占比提升
-
-![](../pic/caller&callee/1.png)
-
 - 如下图所示，图中展示了`select_idle_sibling`调用的两个关键函数的调用占比在干扰影响下变化，左半`select_idle_cpu`调用占比上升、`cpus_share_cache`调用占比下降的部分是发生CPU干扰，右半`select_idle_cpu`和`cpus_share_cache`调用占比均提升的部分是发生了LLC干扰。在CPU干扰时，`select_idle_sibling`选目标核时会产生明显的`select_idle_cpu`调用次数的上升，达到几乎100%。
 
 ![](../pic/caller&callee/2.png)
+
+- 如下图所示，左半是发生CPU干扰时的调用占比，右半是没有CPU干扰时的调用占比。发生干扰时，`psi_task_change`会更频繁地被`ttwu_do_activate`调用，使得`psi_task_change`作为caller占`psi_group_change`的占比提升
+
+![](../pic/caller&callee/1.png)
 
 这些调用占比的增减是否是一种偶然？还是与实际干扰的发生有强逻辑相关性？上述的例子已经足以支撑该方法在CPU干扰情况下的可行性，下面的内容将验证**调用栈占比分析评判性能瓶颈**的方法在**CPU干扰情况下**的有效性。
 
@@ -53,20 +53,20 @@ ftrace的function_graph相关调用栈如下所示：
  15) + 27.971 us   |}
 ```
 
-下面我们来看看`try_to_wake_up`的详细逻辑：
+下面我们来看看两种调用栈占比变化的详细分析：
 
-### `select_idle_sibling`相关调用栈分析
+先将`try_to_wake_up`的主要调用栈用伪代码的形式展示。
 
 伪代码表示的该部分代码的调用栈，其中大部分与C语言无异，将函数的实现全部嵌套方便查看和理解，并将需要区分形参和实参的地方用冒号进行区分（冒号左半边为形参，右半边为实参）：
 
 ```c
 int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
-    // ...
-	int select_task_rq(struct task_struct *p, int prev_cpu: p->wake_cpu, int wake_flags: wake_flags | WF_TTWU) {
+	// ...
+	cpu = (int select_task_rq(struct task_struct *p, int prev_cpu: p->wake_cpu, int wake_flags: wake_flags | WF_TTWU) {
 		// ...
 		int select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags) {
 			// 在CPU干扰中，不会出现WF_SYNC，因为这是同步唤醒——即在wakee被唤醒同时使得waker睡眠
-			// 这是任务协作才会有的情况
+			// 这是任务协作才会有的情况（例如：互斥锁之间就可以使用WF_SYNC来互相唤醒）
 			// 因此，sync在CPU干扰中恒为false
 			int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
 			struct sched_domain *tmp;
@@ -77,164 +77,43 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 				// ...
 				if (cpu != prev_cpu)
 					new_cpu = (int wake_affine(struct sched_domain *sd: tmp, struct task_struct *p, int this_cpu: cpu, 
-								int prev_cpu: prev_cpu, int sync: sync) {
-						int target = nr_cpumask_bits;	// nr_cpumask_bits是CPU ID最大值，这里表示非法值
-						target = wake_affine_idle(this_cpu, prev_cpu, sync) {
-							// 查看空闲this_cpu和prev_cpu这两个是否有空闲CPU，有则选它
-							// 如果不满足条件，return nr_cpumask_bits
-						}
-						// 两个核都不是idle，返回nr_cpumask_bits
-						if (target == nr_cpumask_bits) {
-							target = wake_affine_weight(sd, p, this_cpu, prev_cpu, sync) {
-
-								s64 this_eff_load, prev_eff_load;
-								unsigned long task_load;
-
-								this_eff_load = cpu_load(cpu_rq(this_cpu));
-
-								if (sync) {
-									// 因为sync恒为false，不用分析
-									// ...
-								}
-
-								task_load = task_h_load(p);
-
-								this_eff_load += task_load;
-								if (sched_feat(WA_BIAS))
-									this_eff_load *= 100;
-								this_eff_load *= capacity_of(prev_cpu);
-
-								prev_eff_load = cpu_load(cpu_rq(prev_cpu));
-								prev_eff_load -= task_load;
-								if (sched_feat(WA_BIAS))
-									prev_eff_load *= 100 + (sd->imbalance_pct - 100) / 2;
-								prev_eff_load *= capacity_of(this_cpu);
-
-								if (sync)
-									// 不用分析...
-
-								// this_eff_load < prev_eff_load在高CPU干扰的情况下概率降低
-								return this_eff_load < prev_eff_load ? this_cpu : nr_cpumask_bits;
-							}
-						}
-						// ...
-						if (target != this_cpu)
-							return prev_cpu;
-						// ...
-						return target;
-					});
+							int prev_cpu: prev_cpu, int sync: sync));
 				// ...
 			}
 			// ...
 			if (wake_flags & WF_TTWU) {
 				/* Fast path */
-				new_cpu = select_idle_sibling(struct task_struct *p, int prev: prev_cpu, int target: new_cpu) {
-					bool has_idle_core = false;
-					struct sched_domain *sd;
-					unsigned long task_util, util_min, util_max;
-					int i, recent_used_cpu;
-
-					/*
-					 * On asymmetric system, update task utilization because we will check
-					 * that the task fits with cpu's capacity.
-					 */
-					if (sched_asym_cpucap_active()) {
-						sync_entity_load_avg(&p->se);
-						task_util = task_util_est(p);
-						util_min = uclamp_eff_value(p, UCLAMP_MIN);
-						util_max = uclamp_eff_value(p, UCLAMP_MAX);
-					}
-
-					/*
-					 * per-cpu select_idle_mask usage
-					 */
-					lockdep_assert_irqs_disabled();
-
-					if ((available_idle_cpu(target) || sched_idle_cpu(target)) &&
-						asym_fits_cpu(task_util, util_min, util_max, target))
-						return target;
-
-					/*
-					 * If the previous CPU is cache affine and idle, don't be stupid:
-					 */
-					if (prev != target && cpus_share_cache(prev, target) &&
-						(available_idle_cpu(prev) || sched_idle_cpu(prev)) &&
-						asym_fits_cpu(task_util, util_min, util_max, prev))
-						return prev;
-
-					/*
-					 * Allow a per-cpu kthread to stack with the wakee if the
-					 * kworker thread and the tasks previous CPUs are the same.
-					 * The assumption is that the wakee queued work for the
-					 * per-cpu kthread that is now complete and the wakeup is
-					 * essentially a sync wakeup. An obvious example of this
-					 * pattern is IO completions.
-					 */
-					if (is_per_cpu_kthread(current) &&
-						in_task() &&
-						prev == smp_processor_id() &&
-						this_rq()->nr_running <= 1 &&
-						asym_fits_cpu(task_util, util_min, util_max, prev)) {
-						return prev;
-					}
-
-					/* Check a recently used CPU as a potential idle candidate: */
-					recent_used_cpu = p->recent_used_cpu;
-					p->recent_used_cpu = prev;
-					if (recent_used_cpu != prev &&
-						recent_used_cpu != target &&
-						cpus_share_cache(recent_used_cpu, target) &&
-						(available_idle_cpu(recent_used_cpu) || sched_idle_cpu(recent_used_cpu)) &&
-						cpumask_test_cpu(p->recent_used_cpu, p->cpus_ptr) &&
-						asym_fits_cpu(task_util, util_min, util_max, recent_used_cpu)) {
-						return recent_used_cpu;
-					}
-
-					/*
-					 * For asymmetric CPU capacity systems, our domain of interest is
-					 * sd_asym_cpucapacity rather than sd_llc.
-					 */
-					if (sched_asym_cpucap_active()) {
-						sd = rcu_dereference(per_cpu(sd_asym_cpucapacity, target));
-						/*
-						 * On an asymmetric CPU capacity system where an exclusive
-						 * cpuset defines a symmetric island (i.e. one unique
-						 * capacity_orig value through the cpuset), the key will be set
-						 * but the CPUs within that cpuset will not have a domain with
-						 * SD_ASYM_CPUCAPACITY. These should follow the usual symmetric
-						 * capacity path.
-						 */
-						if (sd) {
-							i = select_idle_capacity(p, sd, target);
-							return ((unsigned)i < nr_cpumask_bits) ? i : target;
-						}
-					}
-
-					sd = rcu_dereference(per_cpu(sd_llc, target));
-					if (!sd)
-						return target;
-
-					if (sched_smt_active()) {
-						has_idle_core = test_idle_cores(target, false);
-
-						if (!has_idle_core && cpus_share_cache(prev, target)) {
-							i = select_idle_smt(p, sd, prev);
-							if ((unsigned int)i < nr_cpumask_bits)
-								return i;
-						}
-					}
-
-					i = select_idle_cpu(p, sd, has_idle_core, target);
-					if ((unsigned)i < nr_cpumask_bits)
-						return i;
-
-					return target;
-				}
+				new_cpu = (int select_idle_sibling(struct task_struct *p, int prev: prev_cpu, int target: new_cpu));
 			}
 		}
+	});
+	if (task_cpu(p) != cpu) {
+		if (p->in_iowait) {
+			delayacct_blkio_end(p);
+			atomic_dec(&task_rq(p)->nr_iowait);
+		}
+
+		wake_flags |= WF_MIGRATED;
+		psi_ttwu_dequeue(p);
+		set_task_cpu(p, cpu);
 	}
+	// ...
+	void ttwu_queue(struct task_struct *p, int cpu, int wake_flags) {
+		struct rq *rq = cpu_rq(cpu);
+		struct rq_flags rf;
+
+		if (ttwu_queue_wakelist(p, cpu, wake_flags))
+			return;
+
+		rq_lock(rq, &rf);
+		update_rq_clock(rq);
+		ttwu_do_activate(rq, p, wake_flags, &rf);
+		rq_unlock(rq, &rf);
+	}
+	// ...
 }
 ```
+### `select_idle_sibling`相关调用栈分析
 
 重点不光在于理顺唤醒某一任务的执行流，更重要在于在发生CPU干扰的时候，try_to_wake_up内部**被调用函数**的**调用占比**和**调用频次**所产生的变化的原因分析。
 
@@ -246,6 +125,113 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 
 - 在发生CPU干扰的情况下，`select_idle_cpu`的调用占比猛增到接近100%，而`cpus_share_cache`的调用占比降低；
 - 在发生LLC干扰的情况下，`select_idle_cpu`和`cpus_share_cache`的调用占比都增加，但都没有达到100%。
+
+`select_idle_sibling`的具体实现：
+```c
+static int select_idle_sibling(struct task_struct *p, int prev, int target)
+{
+	bool has_idle_core = false;
+	struct sched_domain *sd;
+	unsigned long task_util, util_min, util_max;
+	int i, recent_used_cpu;
+
+	/*
+	 * On asymmetric system, update task utilization because we will check
+	 * that the task fits with cpu's capacity.
+	 */
+	if (sched_asym_cpucap_active()) {
+		sync_entity_load_avg(&p->se);
+		task_util = task_util_est(p);
+		util_min = uclamp_eff_value(p, UCLAMP_MIN);
+		util_max = uclamp_eff_value(p, UCLAMP_MAX);
+	}
+
+	/*
+	 * per-cpu select_idle_mask usage
+	 */
+	lockdep_assert_irqs_disabled();
+
+	if ((available_idle_cpu(target) || sched_idle_cpu(target)) &&
+	    asym_fits_cpu(task_util, util_min, util_max, target))
+		return target;
+
+	/*
+	 * If the previous CPU is cache affine and idle, don't be stupid:
+	 */
+	if (prev != target && cpus_share_cache(prev, target) &&
+	    (available_idle_cpu(prev) || sched_idle_cpu(prev)) &&
+	    asym_fits_cpu(task_util, util_min, util_max, prev))
+		return prev;
+
+	/*
+	 * Allow a per-cpu kthread to stack with the wakee if the
+	 * kworker thread and the tasks previous CPUs are the same.
+	 * The assumption is that the wakee queued work for the
+	 * per-cpu kthread that is now complete and the wakeup is
+	 * essentially a sync wakeup. An obvious example of this
+	 * pattern is IO completions.
+	 */
+	if (is_per_cpu_kthread(current) &&
+	    in_task() &&
+	    prev == smp_processor_id() &&
+	    this_rq()->nr_running <= 1 &&
+	    asym_fits_cpu(task_util, util_min, util_max, prev)) {
+		return prev;
+	}
+
+	/* Check a recently used CPU as a potential idle candidate: */
+	recent_used_cpu = p->recent_used_cpu;
+	p->recent_used_cpu = prev;
+	if (recent_used_cpu != prev &&
+	    recent_used_cpu != target &&
+	    cpus_share_cache(recent_used_cpu, target) &&
+	    (available_idle_cpu(recent_used_cpu) || sched_idle_cpu(recent_used_cpu)) &&
+	    cpumask_test_cpu(p->recent_used_cpu, p->cpus_ptr) &&
+	    asym_fits_cpu(task_util, util_min, util_max, recent_used_cpu)) {
+		return recent_used_cpu;
+	}
+
+	/*
+	 * For asymmetric CPU capacity systems, our domain of interest is
+	 * sd_asym_cpucapacity rather than sd_llc.
+	 */
+	if (sched_asym_cpucap_active()) {
+		sd = rcu_dereference(per_cpu(sd_asym_cpucapacity, target));
+		/*
+		 * On an asymmetric CPU capacity system where an exclusive
+		 * cpuset defines a symmetric island (i.e. one unique
+		 * capacity_orig value through the cpuset), the key will be set
+		 * but the CPUs within that cpuset will not have a domain with
+		 * SD_ASYM_CPUCAPACITY. These should follow the usual symmetric
+		 * capacity path.
+		 */
+		if (sd) {
+			i = select_idle_capacity(p, sd, target);
+			return ((unsigned)i < nr_cpumask_bits) ? i : target;
+		}
+	}
+
+	sd = rcu_dereference(per_cpu(sd_llc, target));
+	if (!sd)
+		return target;
+
+	if (sched_smt_active()) {
+		has_idle_core = test_idle_cores(target, false);
+
+		if (!has_idle_core && cpus_share_cache(prev, target)) {
+			i = select_idle_smt(p, sd, prev);
+			if ((unsigned int)i < nr_cpumask_bits)
+				return i;
+		}
+	}
+
+	i = select_idle_cpu(p, sd, has_idle_core, target);
+	if ((unsigned)i < nr_cpumask_bits)
+		return i;
+
+	return target;
+}
+```
 
 #### CPU干扰下`select_idle_sibling`选核频繁调用`select_idle_cpu`的分析
 
@@ -307,11 +293,86 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags) {
 
 > 注：服务器上关闭了超线程，所以这个分支是不可能进入的
 
+在考虑缓存亲和性的调度场景下，`select_idle_sibling`中得到的目标CPU来自于`wake_affine`。
+
+```c
+static int wake_affine(struct sched_domain *sd, struct task_struct *p,
+		       int this_cpu, int prev_cpu, int sync)
+{
+	int target = nr_cpumask_bits;
+
+	if (sched_feat(WA_IDLE))
+		target = wake_affine_idle(this_cpu, prev_cpu, sync);
+
+	if (sched_feat(WA_WEIGHT) && target == nr_cpumask_bits)
+		target = wake_affine_weight(sd, p, this_cpu, prev_cpu, sync);
+
+	schedstat_inc(p->stats.nr_wakeups_affine_attempts);
+	if (target != this_cpu)
+		return prev_cpu;
+
+	schedstat_inc(sd->ttwu_move_affine);
+	schedstat_inc(p->stats.nr_wakeups_affine);
+	return target;
+}
+```
 分析`wake_affine`中得到的`new_cpu`，可以得知：
+
+`wake_affine_idle`是选择旧CPU和目标CPU中空闲的一个CPU，二者均不空闲则会进入`wake_affine_weight`继续判断。
 
 在CPU干扰严重时，会更加频繁地进入`wake_affine_weight`（即`wake_affine_idle`失败），这是因为更难获得idle的`this_cpu`和`prev_cpu`
 
 `wake_affine_weight`主要比较`this_cpu`和`prev_cpu`之间的负载情况。
+
+```c
+static int
+wake_affine_weight(struct sched_domain *sd, struct task_struct *p,
+		   int this_cpu, int prev_cpu, int sync)
+{
+	s64 this_eff_load, prev_eff_load;
+	unsigned long task_load;
+
+	this_eff_load = cpu_load(cpu_rq(this_cpu));
+
+	if (sync) {
+		unsigned long current_load = task_h_load(current);
+
+		if (current_load > this_eff_load)
+			return this_cpu;
+
+		this_eff_load -= current_load;
+	}
+
+	task_load = task_h_load(p);
+
+	this_eff_load += task_load;
+	if (sched_feat(WA_BIAS))
+		this_eff_load *= 100;
+	// 这里乘以capacity_of是为了平衡两个CPU的负载
+	// load是根据nice值算出来的，与CPU的能力强弱无关
+	// 所以在load一定的情况下，强的CPU负载更轻
+	// 为了公平地完成两个CPU的负载比较，应该乘以对方CPU的能力
+	this_eff_load *= capacity_of(prev_cpu);
+
+	prev_eff_load = cpu_load(cpu_rq(prev_cpu));
+	prev_eff_load -= task_load;
+	if (sched_feat(WA_BIAS))
+		prev_eff_load *= 100 + (sd->imbalance_pct - 100) / 2;
+	prev_eff_load *= capacity_of(this_cpu);
+
+	/*
+	 * If sync, adjust the weight of prev_eff_load such that if
+	 * prev_eff == this_eff that select_idle_sibling() will consider
+	 * stacking the wakee on top of the waker if no other CPU is
+	 * idle.
+	 */
+	if (sync)
+		prev_eff_load += 1;
+
+	return this_eff_load < prev_eff_load ? this_cpu : nr_cpumask_bits;
+}
+```
+
 计算负载时利用该CPU的cfs_rq->avg.load_avg（该CPU的调度队列上所有调度实体的平均负载之和）得到`this_eff_load`和`prev_eff_load`。
 
 比较两个CPU的负载大小前，`this_eff_load`加上当前任务负载`task_load`，而`prev_eff_load`减去当前任务负载`task_load`。
@@ -325,7 +386,7 @@ PSI是Pressure Stall Information。它是内核中的一个性能分析工具。
 
 以任务的粒度，在存在其他任务CPU争用、内存缺页、IO阻塞、irq阻塞等瓶颈时会统计记录系统中存在的被阻塞任务数。
 
-在`try_to_wake_up`的相关调用栈中，`ttwu_queue`内会调用`psi_task_change`。故而重点分析`ttwu_queue`的内部逻辑。
+在`try_to_wake_up`的相关调用栈中，`ttwu_queue`内会调用`ttwu_do_activate`，进而调用`psi_task_change`。故而重点分析`ttwu_queue`的内部逻辑。
 
 ```c
 static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
@@ -357,6 +418,16 @@ static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
 从源码层面分析可以得出这个数据的原因：
 
 ```c
+static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
+{
+	if (sched_feat(TTWU_QUEUE) && ttwu_queue_cond(p, cpu)) {
+		sched_clock_cpu(cpu); /* Sync clocks across CPUs */
+		__ttwu_queue_wakelist(p, cpu, wake_flags);
+		return true;
+	}
+
+	return false;
+}
 /// 简单来说：当目标CPU空闲或目标CPU与当前CPU不共享LLC，则迁移，返回true
 static inline bool ttwu_queue_cond(struct task_struct *p, int cpu)
 {
@@ -394,16 +465,6 @@ static inline bool ttwu_queue_cond(struct task_struct *p, int cpu)
 	 */
 	if (!cpu_rq(cpu)->nr_running)
 		return true;
-
-	return false;
-}
-static bool ttwu_queue_wakelist(struct task_struct *p, int cpu, int wake_flags)
-{
-	if (sched_feat(TTWU_QUEUE) && ttwu_queue_cond(p, cpu)) {
-		sched_clock_cpu(cpu); /* Sync clocks across CPUs */
-		__ttwu_queue_wakelist(p, cpu, wake_flags);
-		return true;
-	}
 
 	return false;
 }
