@@ -10,6 +10,8 @@
 
 [iSulad沙箱机制代码阅读](./blogs/isulad_sandbox.md)
 
+[编译Linux内核时需要生成`compile_commands.json`的两种方法](./blogs/building_linux_kernel.md)
+
 ## Projects
 
 ### [k8s](./k8s/index.md)
