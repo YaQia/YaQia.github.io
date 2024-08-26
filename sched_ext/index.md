@@ -120,6 +120,8 @@ DSQ是`sched_ext`使用的内部调度队列数据结构，它的全称是`dispa
 
 同时DSQ也可以被用户自定义创建，这样就可以形成用户DSQ和内核DSQ的双层结构。它可以通过`scx_bpf_create_dsq`完成创建。
 
+> 注：默认情况下，`SCX_DSQ_GLOBAL`和`SCX_DSQ_LOCAL`都只支持FIFO（即只支持`scx_bpf_dispatch`调用），而自定义DSQ则支持优先级排序（即支持`scx_bpf_dispatch_vtime`调用）。
+
 下面简要说明唤醒任务是如何调度和执行的。
 
 1. 当任务唤醒时，`ops.select_cpu()` 是调用的第一个操作。这有两个目的：一、CPU较优选型提示。其次，如果空闲，则唤醒所选CPU。
@@ -179,7 +181,7 @@ SCX_OPS_DEFINE(simple_ops,
 	      .enqueue			= (void *)simple_enqueue,
 	      .dispatch 		= (void *)simple_dispatch,
 	      .running			= (void *)simple_running,
-	      .stopping	    	= (void *)simple_stopping,
+	      .stopping	   = (void *)simple_stopping,
 	      .enable			= (void *)simple_enable,
 	      .init		    	= (void *)simple_init,
 	      .exit		    	= (void *)simple_exit,
@@ -189,7 +191,61 @@ SCX_OPS_DEFINE(simple_ops,
 
 默认情况下，所有的回调实现都可以缺省，只需要`name`项即可。（都有默认实现）
 
-下面通过演示的方式详细查看代码实现。
+```c
+s32 BPF_STRUCT_OPS_SLEEPABLE(simple_init)
+{
+	return scx_bpf_create_dsq(SHARED_DSQ, -1);
+}
+
+void BPF_STRUCT_OPS(simple_exit, struct scx_exit_info *ei)
+{
+	UEI_RECORD(uei, ei);
+}
+```
+初始化的时候创建了自定义的DSQ队列（一个共享队列），传入的第二个参数-1表示其numa节点设置为-1（即`NUMA_NO_NODE`）。
+
+```c
+// Enable BPF scheduling for a task
+// enable is paired with disable
+void BPF_STRUCT_OPS(simple_enable, struct task_struct *p)
+{
+	p->scx.dsq_vtime = vtime_now;
+}
+```
+`enable`的时候将虚拟时间设置为`vtime_now`，它通过下面的方法记录了当前最新的在运行的任务的vtime：
+```c
+void BPF_STRUCT_OPS(simple_running, struct task_struct *p)
+{
+	if (fifo_sched)
+		return;
+
+	/*
+	* Global vtime always progresses forward as tasks start executing. The
+	* test and update can be performed concurrently from multiple CPUs and
+	* thus racy. Any error should be contained and temporary. Let's just
+	* live with it.
+	*/
+	if (vtime_before(vtime_now, p->scx.dsq_vtime))
+		vtime_now = p->scx.dsq_vtime;
+}
+
+void BPF_STRUCT_OPS(simple_stopping, struct task_struct *p, bool runnable)
+{
+	if (fifo_sched)
+		return;
+
+	/*
+	* Scale the execution time by the inverse of the weight and charge.
+	*
+	* Note that the default yield implementation yields by setting
+	* @p->scx.slice to zero and the following would treat the yielding task
+	* as if it has consumed all its slice. If this penalizes yielding tasks
+	* too much, determine the execution time by taking explicit timestamps
+	* instead of depending on @p->scx.slice.
+	*/
+	p->scx.dsq_vtime += (SCX_SLICE_DFL - p->scx.slice) * 100 / p->scx.weight;
+}
+```
 
 ## 参考文档
 
