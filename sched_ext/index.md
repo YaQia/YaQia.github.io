@@ -159,7 +159,7 @@ DSQ是`sched_ext`使用的内部调度队列数据结构，它的全称是`dispa
 
 <!-- ![`sched_ext`调度周期流程](../pic/sched_ext/sched_ext流程.png) -->
 <div align="center">
-<img src="https://yaqia.github.io/pic/sched_ext/sched_ext流程.png" width=50% />
+   <img src="https://yaqia.github.io/pic/sched_ext/sched_ext流程.png" width=50% />
 </div>
 
 ### BPF程序
