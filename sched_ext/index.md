@@ -10,7 +10,7 @@
 scx_simple  # 启动simple调度器
 ```
 
-![](../pic/sched_ext/启动scx_simple调度.png)
+![](https://yaqia.github.io/pic/sched_ext/启动scx_simple调度.png)
 
 > 注：有的朋友可能会顾虑如果调度器崩溃该怎么办。实际上若调度器崩溃、或走向未预期行为，`sched_ext`会主动卸载该调度算法，并恢复默认的调度策略（`sched_ext`在没有装载时默认与`sched_fair`相同）
 
