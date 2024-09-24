@@ -132,7 +132,7 @@ DSQ是`sched_ext`使用的内部调度队列数据结构，它的全称是`dispa
    选择CPU的副作用之一是将其从空闲状态唤醒。当`select_cpu`返回的CPU是一个空闲CPU时，则该CPU会被系统唤醒。
    虽然BPF调度程序可以使用`scx_bpf_kick_cpu()`帮助程序唤醒任何cpu，但明智地使用`ops.select_cpu()`可以更简单、更高效。
 
-   通过调用`scx_bpf_dispatch()`，可以立即将任务从`ops.select_cpu()`分派到DSQ。如果任务从`ops.select_cpu()`调度到SCX_DSQ_LOCAL，则它将被调度到`ops.select_cpu()`的返回值对应的CPU的本地DSQ。
+   通过调用`scx_bpf_dispatch()`，可以立即将任务从`ops.select_cpu()`分派到DSQ。如果任务从`ops.select_cpu()`调度到SCX_DSQ_LOCAL，则它将被调度到`ops.select_cpu()`的**返回值对应的CPU**的本地DSQ。
    此外，直接从`ops.select_cpu()`调度将导致跳过`ops.enqueue()`回调。
 
    > 注：调度程序核心将忽略无效的CPU选择。例如，如果它超出了任务允许的`cpumask`范围。
@@ -157,10 +157,7 @@ DSQ是`sched_ext`使用的内部调度队列数据结构，它的全称是`dispa
 
 调用流程如下流程图所示，其中紫色代表内核接管部分，蓝色代表要实现的代码，绿色表示可以调用的bpf_helper函数。
 
-<!-- ![`sched_ext`调度周期流程](../pic/sched_ext/sched_ext流程.png) -->
-<div align="center" width=50%>
-   ![`sched_ext`调度周期流程](../pic/sched_ext/sched_ext流程.png)
-</div>
+![`sched_ext`调度周期流程](../pic/sched_ext/sched_ext流程.png)
 
 ### BPF程序
 
@@ -190,6 +187,7 @@ SCX_OPS_DEFINE(simple_ops,
 	      .exit		    	= (void *)simple_exit,
 	      .name		    	= "simple");
 ```
+
 在`sched_ext`的实现中，需要使用各种宏，`SCX_OPS_DEFINE`是其中用来注册实现的回调函数的宏。
 
 默认情况下，所有的回调实现都可以缺省，只需要`name`项即可。（都有默认实现）
@@ -205,6 +203,7 @@ void BPF_STRUCT_OPS(simple_exit, struct scx_exit_info *ei)
 	UEI_RECORD(uei, ei);
 }
 ```
+
 初始化的时候创建了自定义的DSQ队列（一个共享队列），传入的第二个参数-1表示其numa节点设置为-1（即`NUMA_NO_NODE`）。
 
 ```c
@@ -215,7 +214,9 @@ void BPF_STRUCT_OPS(simple_enable, struct task_struct *p)
 	p->scx.dsq_vtime = vtime_now;
 }
 ```
+
 `enable`的时候将虚拟时间设置为`vtime_now`，它通过下面的方法记录了当前最新的在运行的任务的vtime：
+
 ```c
 void BPF_STRUCT_OPS(simple_running, struct task_struct *p)
 {
