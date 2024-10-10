@@ -143,6 +143,8 @@ DSQ是`sched_ext`使用的内部调度队列数据结构，它的全称是`dispa
    - 通过使用小于 2^63 的DSQ ID调用`scx_bpf_dispatch()`立即将任务分派到自定义DSQ。
    - 在BPF程序中对任务进行排队（利用BPF程序自定义的数据结构）。
 
+   > 注：这里的`SCX_DSQ_LOCAL`指的并不是当前运行enqueue所在的CPU，而是由select_cpu得到的CPU。
+
 3. 当CPU准备好调度时，它首先查看其本地DSQ (local DSQ)。如果为空，则它会查看全局DSQ (global DSQ)。如果仍然没有要运行的任务，则会调用`ops.dispatch()`，它可以使用以下两个函数来填充本地DSQ。
 
    - `scx_bpf_dispatch()`将任务分派到 DSQ。可以使用任何目标DSQ - `SCX_DSQ_LOCAL`、`SCX_DSQ_LOCAL_ON | cpu`、`SCX_DSQ_GLOBAL`或自定义DSQ。虽然目前**无法在持有BPF锁的情况下调用**`scx_bpf_dispatch()`，但这一问题正在开发中并将受到支持。`scx_bpf_dispatch()`安排调度而不是立即执行被调度任务。最多可以有`ops.dispatch_max_batch`待处理任务。
