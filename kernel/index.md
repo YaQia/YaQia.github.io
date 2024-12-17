@@ -14,8 +14,13 @@
 
 首先了解了每个CPU在实时调度器上的基本数据结构和对应接口：
 
-[每个CPU的实时调度基本数据结构](./1.md)
+[每个CPU的实时调度基本数据结构](./percpu/1.md)
 
 Linux内核通过percpu机制实现多个CPU都单独拥有一份的数据结构：
 
 [percpu机制](https://zhuanlan.zhihu.com/p/340985476)
+
+## sysfs
+
+[kobject](./sysfs/kobject.md)
+

@@ -1,0 +1,3 @@
+# kobject, kset和ktype
+
+
