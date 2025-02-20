@@ -12,6 +12,8 @@
 
 [编译Linux内核时需要生成`compile_commands.json`的两种方法](./blogs/building_linux_kernel.md)
 
+[虚拟机克隆时必须要注意的问题](./blogs/KVM_clone_important_operation.md)
+
 ## Projects
 
 ### [k8s](./k8s/index.md)
