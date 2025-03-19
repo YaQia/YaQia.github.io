@@ -75,3 +75,24 @@ gdb侧的连接过程是完全相同的。
 > 注：如果`CONFIG_FRAME_POINTER=y`配置正确，则gdb的调试栈中将会让栈的回溯信息（`bt`）变得更加完整（不会再出现问号开头的gdb回溯栈信息）。
 
 > 另注：gdb一开始的断点可以不要用软件中断(`break`)来设置，而是硬件中断(`hbreak`)。这样即使所需的地址范围初始化还没开始也能正确插入断点。
+
+# 调试内核中的疑难杂症
+
+## 内核kernel oops该怎么debug？
+
+kernel oops是常见的内核地址访问错误，大多数时候这种错误会在内核日志中报错打印出报错时的堆栈信息和出错位置。
+这时利用这个出错位置和带调试符号的vmlinux，就可以用这个办法找出错误点：
+
+```bash
+addr2line -e vmlinux [address or function signature with offset]
+```
+
+但是也有一些情况在内核中断函数中出现的访存错误，此时再次中断并获取一些锁将发生死锁，内核会卡住无法动弹。
+这时可以利用gdb的<Ctrl+C>将目标机器暂停下来，并利用`info thread`查看其当前哪些线程是running的，逐一分析直到找到backtrace中含有page_fault的函数，有访存出错地址`address`和寄存器信息`regs`保存。
+
+`regs`可以利用gdb的print命令直接打印出来，以x86为例，可以这样打印出错时的寄存器信息：
+```gdb
+p/x *(struct pt_regs*)<regs_address>
+```
+
+其中的ip就是出现内存访存错误的执行地址。获得这个信息再用`addr2line`即可精准找到出错位置。
