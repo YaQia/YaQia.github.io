@@ -14,7 +14,9 @@ QEMU虚拟机的内核调试需要：
 
 - 自制initramfs（当然如果你要调试内核的启动早期用不到也可以不做）
 - 编译带调试信息的内核的bzImage（如图高亮部分所示，这个选项不能选`Disable debug information`）
-  ![基本调试信息](../pic/KVM/1.png)
+	<div align=center>
+		<img src="../pic/KVM/1.png" width=80%>
+	</div>
 - 编译内核时关闭内存随机化或传入`nokaslr`参数
 - 对QEMU传入`-s`（启用gdb调试，并占用1234号端口用于调试，等价于`-gdb tcp::1234`）和`-S`（在启动时暂停）参数
 

@@ -1,3 +1,6 @@
+---
+outline: deep
+---
 # Linux的隔离技术
 
 - 什么是Linux中的`namespace`和`cgroups`？
