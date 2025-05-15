@@ -87,7 +87,7 @@ export default defineConfig({
               items: [
                 {
                   text: "简单容器运行时(neodocker)仓库",
-                  link: "https://gitee.com/Ya_Qia/neodocker/README.md",
+                  link: "https://gitee.com/Ya_Qia/neodocker",
                 },
               ],
             },
