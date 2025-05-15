@@ -94,6 +94,17 @@ export default defineConfig({
           ],
         },
       ],
+      "/deep_learning": [
+        {
+          text: "深度学习",
+          items: [
+            {
+              text: "第一章：引入",
+              link: "../deep_learning/chapter1_intro.md",
+            },
+          ],
+        },
+      ],
     },
 
     socialLinks: [

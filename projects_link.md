@@ -13,3 +13,5 @@
 ## [sched_ext](./sched_ext/index.md)
 
 ## [KVM虚拟机使用注意事项](./KVM/index.md)
+
+## [深度学习](./deep_learning/index.md)
