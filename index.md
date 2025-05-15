@@ -24,4 +24,7 @@ features:
   - title: 云计算技术
     details: 记录了namespace和cgroups的技术原理和自己实现的容器运行时
     link: ./k8s/index.md
+  - title: 深度学习
+    details: 主要是《动手学深度学习》的内容的精简浓缩记录，针对个人之前没接触过/不熟悉的概念的查漏补缺
+    link: ./deep_learning/index.md
 ---
