@@ -4,6 +4,9 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "Ethan Yao's Blogs",
   description: "各种各样的知识，操作系统、云计算、机器学习，甚至是前端...",
+  markdown: {
+    math: true,
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -101,6 +104,10 @@ export default defineConfig({
             {
               text: "第一章：引入",
               link: "../deep_learning/chapter1_intro.md",
+            },
+            {
+              text: "第二章：PyTorch里的数学",
+              link: "../deep_learning/chapter2_pytorch.md",
             },
           ],
         },
