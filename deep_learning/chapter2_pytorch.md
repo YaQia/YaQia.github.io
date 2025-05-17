@@ -210,7 +210,10 @@ print(A, B, (torch.mm(A, B), A @ B))
 #         [12., 12., 12., 12.]]))
 ```
 
-> [!NOTE] > `torch.ones()`返回的默认就是float32的数据
+> [!NOTE]
+> 方法`torch.ones()`默认返回的就是float32的数据
+
+---
 
 > [!TIP]
 > 显然直接使用`A @ B`这样的写法更加省心
@@ -240,23 +243,23 @@ $$ f(\mathbf{x}) \ge 0 $$
 > [!TIP]
 > 常见的$L_1$范数和$L_2$范数都是这个$L_p$范数的特殊情况（$p=\{1,2\}$）
 
+---
+
 > [!NOTE]
 > 常见的范数一般都指$L_2$范数，通常它都会省略下标：$\|\mathbf{x}\|$等价于$\|\mathbf{x}\|_2$
-
-向量可以这样求$L_2$范数：
-
-```python
-u = torch.tensor([3.0, -4.0])
-torch.norm(u)  # 5
-```
-
-想求$L_1$范数比较简单，因为它就是求各个分量绝对值的和：
-
-```python
-torch.abs(u).sum()
-```
-
-:::
+>
+> 向量可以这样求$L_2$范数：
+>
+> ```python
+> u = torch.tensor([3.0, -4.0])
+> torch.norm(u)  # 5
+> ```
+>
+> 想求$L_1$范数比较简单，因为它就是求各个分量绝对值的和：
+>
+> ```python
+> torch.abs(u).sum()
+> ```
 
 - 矩阵的Frobenius范数：
   $$
@@ -269,6 +272,8 @@ torch.abs(u).sum()
 > ```python
 > torch.norm(torch.ones((4, 9)))  # 6
 > ```
+
+---
 
 > [!TIP]
 > 将矩阵范数进一步推广到张量上，其实就可以得到n维张量的范数：
@@ -364,7 +369,10 @@ $$
 
 在输出为向量$\mathbf{y}$的情况下，还需要一个向量$\mathbf{v}$作为标量函数$l=g(\mathbf{y})$的梯度：
 
-$$\mathbf{v}=(\frac{\partial l}{\partial y_1} ... \frac{\partial l}{\partial y_m})^T$$
+$$
+\mathbf{v}=\begin{pmatrix}\frac{\partial l}{\partial y_1} ...
+\frac{\partial l}{\partial y_m}\end{pmatrix}^T
+$$
 
 则根据链式法则
 
@@ -373,23 +381,23 @@ $$
 (\frac{\partial \mathbf{y}}{\partial \mathbf{x}})^T \frac{\partial z}{\partial \mathbf{y}}
 $$
 
-`torch.autograd`最终计算的是以$\mathbf{x}$为自变量的标量l的梯度：
+`torch.autograd`最终计算的是以$\mathbf{x}$为自变量的标量$l$的梯度：
 
 $$
-J^T\dot \mathbf{v} =
+J^T\cdot \mathbf{v} =
 \begin{pmatrix}
 \frac{\partial y_1}{\partial x_1}&\cdots &\frac{\partial y_m}{\partial x_1}\\
 \vdots &\ddots &\vdots \\
 \frac{\partial y_1}{\partial x_n}&\dots &\frac{\partial y_m}{\partial x_n}
 \end{pmatrix}
 \begin{pmatrix}
-\frac{\partial l}{\partial y_1}
-\vdots
+\frac{\partial l}{\partial y_1}\\
+\vdots\\
 \frac{\partial l}{\partial y_m}
 \end{pmatrix}
 = \begin{pmatrix}
-\frac{\partial l}{\partial x_1}
-\vdots
+\frac{\partial l}{\partial x_1}\\
+\vdots\\
 \frac{\partial l}{\partial x_n}
 \end{pmatrix}
 $$
@@ -416,7 +424,7 @@ x.grad
 这里可以分离y来返回一个新变量u，该变量与y具有相同的值， 但丢弃计算图中如何计算y的任何信息。
 换句话说，梯度不会向后流经u到x。
 因此，下面的反向传播函数计算z=u*x关于x的偏导数，同时将u作为常数处理，
-而不是z=x*x*x关于x的偏导数。
+而不是z=x*x\*x关于x的偏导数。
 
 ```python
 import torch
@@ -449,6 +457,7 @@ def f(a):
     else:
         c = 100 * b
     return c
+
 
 a = torch.randn(size=(), requires_grad=True)
 d = f(a)
