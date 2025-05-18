@@ -468,5 +468,33 @@ print(a.grad == d / a)  # tensor(True)
 
 ## 概率论
 
-$$
-$$
+概率论基本概念有一个比较特殊的没学过的概念可以看看：[多项分布](https://math.fandom.com/zh/wiki/%E5%A4%9A%E9%A1%B9%E5%88%86%E5%B8%83)
+
+```python
+import torch
+from torch.distributions.multinomial import Multinomial
+import matplotlib.pyplot as plt
+
+# 投🎲：各个面概率相等，用多次投出的结果统计频率会趋近于概率
+fair_probs = torch.ones(6) / 6
+print("概率：", fair_probs)
+counts = Multinomial(1000, fair_probs).sample()
+print(counts)
+print("频率：", counts / 1000)
+
+# 可以可视化看看随着投出次数增长频率的变化情况
+counts = Multinomial(10, fair_probs).sample((500,))
+cum_counts = counts.cumsum(dim=0)
+estimates = cum_counts / cum_counts.sum(dim=1, keepdim=True)
+
+for i in range(6):
+    plt.plot(estimates[:, i].numpy(), label=("P(die=" + str(i + 1) + ")"))
+plt.axhline(y=0.167, color="black", linestyle="dashed")
+plt.gca().set_xlabel("Groups of experiments")
+plt.gca().set_ylabel("Estimated probability")
+plt.legend()
+plt.show()
+```
+
+结果会类似下面这张图：
+![频率估计概率](https://zh.d2l.ai/_images/output_probability_245b7d_63_0.svg)
