@@ -17,3 +17,5 @@
 ## [深度学习](./deep_learning/index.md)
 
 ## [前端](./frontend/index.md)
+
+## [论文](./thesis/index.md)
