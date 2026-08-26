@@ -31,7 +31,7 @@ columns:
       - title: KVM 虚拟机
         link: /kernel/kvm/
         details: 克隆注意事项与 gdb 调试 libvirt/KVM 内核
-  - title: 云计算与容器
+  - title: 云计算
     link: /k8s/
     details: namespace/cgroups 原理与自研容器运行时 neodocker
   - title: 分布式计算
@@ -42,10 +42,17 @@ columns:
     details: 《动手学深度学习》精简笔记，查漏补缺
   - title: 前端技术
     link: /frontend/
-    details: SolidJS 响应式原语与 2.0 Beta 新机制
-  - title: Go 语言
-    link: /go/
-    details: interface{} 底层实现与逃逸分析
+    details: SolidJS 响应式原语
+  - title: 编程语言
+    link: /programming_language/
+    details: Go 和 Rust 等新兴编程语言
+    children:
+      - title: Golang
+        link: /programming_language/go/
+        details: interface{} 底层实现与逃逸分析
+      - title: Rust
+        link: /programming_language/rust/
+        details: 类型系统、内存模型与异步编程
   - title: 论文阅读
     link: /papers/
     details: 精读、略读与我参与的论文工作

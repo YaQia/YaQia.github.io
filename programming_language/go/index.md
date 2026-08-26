@@ -1,4 +1,4 @@
-# go逃逸分析
+# go 语言逃逸分析
 
 ## [Go interface{}的底层实现](https://halfrost.com/go_interface/)
 
