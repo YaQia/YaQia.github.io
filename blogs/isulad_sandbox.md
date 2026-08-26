@@ -38,7 +38,7 @@ message RunPodSandboxRequest {
 
 前者利用pause容器的接口将sandbox管理请求转发给executor（如下图所示）；后者有单独的sandboxer进程管理底层沙箱逻辑，sandboxer控制器通过gRPC请求实现控制
 
-![](../pic/blogs/sandbox_module.svg)
+![](./pic/sandbox_module.svg)
 
 其中RunPodSandbox就是申请创建一个pod所需要的资源并运行这个pod的过程，**将该过程详细分析，就能理解沙箱具体在维护什么**
 
@@ -46,11 +46,11 @@ message RunPodSandboxRequest {
 
 入口通过gRPC定义来实现，客户端以gRPC的方式调用服务
 
-![](../pic/blogs/isulad_sandbox_1.png)
+![](./pic/isulad_sandbox_1.png)
 
 下面将`m_rService->RunPodSandbox`拆分为如下图右半部分所示的调用过程逐一分析
 
-![](../pic/blogs/RunPodSandbox.svg)
+![](./pic/runpod_sandbox.svg)
 
 ### PrepareSandboxData
 
@@ -82,7 +82,7 @@ config中NamespaceMode配置该sandbox是用于pod还是node，前者是通用�
 
 config中关于NamespaceMode的proto文件定义：
 
-![](../pic/blogs/isulad_sandbox_2.png)
+![](./pic/isulad_sandbox_2.png)
 
 namespace_is_cni检查了当前networkMode是否是"cni"，是则执行PrepareSandboxKey，它会通过文件接口创建一个新的network namespace（随机初始化namespace名字，在isulad中被称为network/sandbox key）
 

@@ -19,4 +19,4 @@
 大胆点说：Rayon（SolidJS的作者）就是signal的创始人
 :::
 
-SolidJS 2.0 Beta版出了！进来尝尝鲜：[SolidJS 2.0 预览](./SolidJS2.0.md)
+SolidJS 2.0 Beta版出了！进来尝尝鲜：[SolidJS 2.0 预览](./solidjs-2.md)

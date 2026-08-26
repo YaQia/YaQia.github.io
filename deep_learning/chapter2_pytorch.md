@@ -328,9 +328,9 @@ PyTorch支持通过**反向传播**计算一个标量$y$对向量$\mathbf{x}$的
 
 如果你不知道反向传播，推荐去看看这本书第五章
 
-![反向传播示意图](../pic/deep_learning/chapter2_1.png)
+![反向传播示意图](./pic/chapter2_backprop_1.png)
 
-![反向传播示意图](../pic/deep_learning/chapter2_2.png)
+![反向传播示意图](./pic/chapter2_backprop_2.png)
 :::
 
 ```python

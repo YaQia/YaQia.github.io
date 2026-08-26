@@ -1,1 +1,0 @@
-- [为什么k8s必须要求bridge-nf-call-iptables配置？](https://imroc.cc/post/202105/why-enable-bridge-nf-call-iptables/)
