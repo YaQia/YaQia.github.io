@@ -1,5 +1,5 @@
 import { defineConfig } from "vitepress";
-import { autoSidebar } from "./sidebar";
+import { autoSidebar, autoNav } from "./sidebar";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -9,29 +9,34 @@ export default defineConfig({
     math: true,
   },
   themeConfig: {
-    // https://vitepress.dev/reference/default-theme-config
-    // nav 仍手动维护：新增"顶层专栏"才需要改这里；子专题/文章增删由 sidebar 自动生成。
-    nav: [
-      { text: "首页", link: "/" },
-      {
-        text: "内核",
-        items: [
-          { text: "eBPF", link: "/kernel/ebpf/" },
-          { text: "调度器", link: "/kernel/scheduling/" },
-          { text: "KVM 虚拟机", link: "/kernel/kvm/" },
-          { text: "内核总览", link: "/kernel/" },
-        ],
-      },
-      { text: "云计算", link: "/k8s/" },
-      { text: "分布式计算", link: "/distributed_compute/" },
-      { text: "深度学习", link: "/deep_learning/" },
-      { text: "论文", link: "/papers/" },
-      { text: "博客", link: "/blogs/" },
-    ],
+    // nav 与 sidebar 均由文件系统自动生成，见 sidebar.ts。
+    // 顶层专栏：首页 index.md 的 features 卡片决定 nav 顺序与文案；新增专栏只需加卡片 + 建目录。
+    nav: autoNav(),
 
-    // sidebar 由文件系统自动生成，见 sidebar.ts。
-    // 约定：专栏 index.md 的链接顺序即 sidebar 顺序，文件 H1（或 frontmatter.title）即条目文案。
+    // sidebar 由文件系统自动生成：专栏 index.md 的链接顺序即顺序，文件 H1 即文案。
     sidebar: autoSidebar(),
+
+    // 本地搜索：构建时生成索引，纯客户端，GitHub Pages 直接可用，无需外部服务。
+    search: {
+      provider: "local",
+      options: {
+        translations: {
+          button: {
+            buttonText: "搜索",
+            buttonAriaLabel: "搜索",
+          },
+          modal: {
+            noResultsText: "没有找到结果",
+            resetButtonTitle: "清除查询",
+            footer: {
+              selectText: "选择",
+              navigateText: "切换",
+              closeText: "关闭",
+            },
+          },
+        },
+      },
+    },
 
     socialLinks: [
       { icon: "github", link: "https://github.com/YaQia/YaQia.github.io" },

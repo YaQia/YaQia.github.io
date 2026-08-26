@@ -192,3 +192,111 @@ export function autoSidebar(): Record<string, SidebarItem[]> {
   }
   return sidebar;
 }
+
+// === nav 自动生成 ===
+// 约定：首页 index.md 的 columns 是顶层专栏的唯一信息源（nav 只收录这里 curated 的内容）——
+//   1. columns 顺序 = nav 顺序
+//   2. 有 children 的专栏 → nav 下拉分组（首项为"<title>总览"指向该专栏 landing）
+//   3. 无 children 的专栏 → nav 平级条目，文案 = 该专栏标题
+// 首页的 columns 同时驱动主页渲染（见 theme/components/HomeColumns.vue），二者同源。
+// 新增顶层专栏只需：首页 columns 加一项（必要时带 children）+ 建目录 index.md，nav 自动更新。
+
+export interface NavItem {
+  text: string;
+  link: string;
+  items?: NavItem[];
+}
+
+interface Column {
+  title: string;
+  link: string;
+  details: string;
+  children: Column[];
+}
+
+function stripQuotes(v: string): string {
+  return v.replace(/^["']|["']$/g, "").trim();
+}
+
+// 解析首页 frontmatter 里的 columns 块（缩进式 YAML 子集：列表项 + 标量字段 + 嵌套 children 列表）。
+function parseHomepageColumns(): Column[] {
+  const raw = readText(path.join(ROOT, "index.md"));
+  const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm) return [];
+  const lines = fm[1].split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length && !/^columns:\s*$/.test(lines[i])) i++;
+  if (i >= lines.length) return [];
+  i++;
+  const block: string[] = [];
+  for (; i < lines.length; i++) {
+    const l = lines[i];
+    if (l === "" || /^\s/.test(l)) block.push(l);
+    else break;
+  }
+  const cols: Column[] = [];
+  let colIndent = -1;
+  let cur: Column | null = null;
+  let curChild: Column | null = null;
+  for (const line of block) {
+    if (line.trim() === "") continue;
+    const mItem = line.match(/^(\s*)-\s+title:\s*(.+?)\s*$/);
+    if (mItem) {
+      const ind = mItem[1].length;
+      if (colIndent === -1) colIndent = ind;
+      if (ind === colIndent) {
+        cur = {
+          title: stripQuotes(mItem[2]),
+          link: "",
+          details: "",
+          children: [],
+        };
+        cols.push(cur);
+        curChild = null;
+      } else {
+        curChild = {
+          title: stripQuotes(mItem[2]),
+          link: "",
+          details: "",
+          children: [],
+        };
+        cur?.children.push(curChild);
+      }
+      continue;
+    }
+    const mField = line.match(/^(\s*)(\w+):\s*(.*)$/);
+    if (mField) {
+      const ind = mField[1].length;
+      const key = mField[2];
+      const val = stripQuotes(mField[3]);
+      if (key === "children") continue;
+      if (curChild && colIndent >= 0 && ind >= colIndent + 6) {
+        if (key === "link") curChild.link = val;
+        else if (key === "details") curChild.details = val;
+      } else if (cur && colIndent >= 0 && ind >= colIndent + 2) {
+        if (key === "link") cur.link = val;
+        else if (key === "details") cur.details = val;
+      }
+    }
+  }
+  return cols.filter((c) => c.title && c.link);
+}
+
+export function autoNav(): NavItem[] {
+  const cols = parseHomepageColumns();
+  const nav: NavItem[] = [{ text: "首页", link: "/" }];
+  for (const c of cols) {
+    if (c.children.length) {
+      nav.push({
+        text: c.title,
+        items: [
+          { text: c.title + "总览", link: c.link },
+          ...c.children.map((ch) => ({ text: ch.title, link: ch.link })),
+        ],
+      });
+    } else {
+      nav.push({ text: c.title, link: c.link });
+    }
+  }
+  return nav;
+}
