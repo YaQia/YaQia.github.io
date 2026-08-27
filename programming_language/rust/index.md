@@ -11,3 +11,7 @@
 
 - async/.await 机制
 - 实现一个简单的异步编程运行时
+
+## 有趣的 Rust 博客
+
+- [循环Trait依赖是否合理？](https://smallcultfollowing.com/babysteps/blog/2026/08/10/cyclic-trait-solving/)
