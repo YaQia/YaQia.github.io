@@ -12,4 +12,5 @@
 
 ## sched_ext典型调度器分析
 
-- [scx_nest分析](./scx-nest.md)
+- [scx_nest分析](./scx_nest.md)
+- [scx_p2dq分析](./scx_p2dq.md)

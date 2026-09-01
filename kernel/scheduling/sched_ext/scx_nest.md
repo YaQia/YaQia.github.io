@@ -385,3 +385,6 @@ SCX_OPS_DEFINE(nest_ops,
 - [OS Scheduling with Nest: Keeping Tasks Close Together on Warm Cores](https://hal.inria.fr/hal-03612592/file/paper.pdf)（EuroSys '22）
 - [scx_nest源码](https://github.com/sched-ext/scx/tree/main/scheds/c/scx_nest.bpf.c)
 - [sched_ext overview](https://github.com/sched-ext/scx/blob/main/OVERVIEW.md)
+
+> [!TIP]
+> 我给 scx_nest 写了一个 PR 来修复高版本内核中它可能出现的问题：https://github.com/sched-ext/scx-c-examples/pull/2
