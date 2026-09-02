@@ -47,8 +47,8 @@ sched_tick()
         ↓                          ↓                          ↓
 ┌───────────────────┐  ┌─────────────────────┐  ┌────────────────────┐
 │ 返回用户态         │  │ 中断返回内核态       │  │ preempt_count → 0  │
-│ syscall/irq/      │  │ raw_irqentry_exit_  │  │ __preempt_count_   │
-│ exception exit    │  │ cond_resched()      │  │ dec_and_test()     │
+│ exit_to_user_     │  │ raw_irqentry_exit_  │  │ __preempt_count_   │
+│ mode_loop()       │  │ cond_resched()      │  │ dec_and_test()     │
 └─────────┬─────────┘  └──────────┬──────────┘  └─────────┬──────────┘
           │                       │                       │
           ↓                       ↓                       ↓
@@ -159,6 +159,7 @@ context_switch(rq, prev, next)
 ---
 
 ## 三、总结
+
 
 | 维度 | 触发逻辑 | 执行逻辑 |
 |------|----------|----------|
