@@ -22,7 +22,8 @@ sched_ext 是 Linux 6.12 引入的、支持用户用 BPF 程序编写并热插�
 - [sched_ext 简介](./sched_ext/overview.md)
 - [sched_ext 的初始化过程](./sched_ext/initialization.md)
 - [需要改动的数据结构](./sched_ext/data-structures.md)
-- [scx_nest 调度器分析](./sched_ext/scx-nest.md)
+- [scx_nest 调度器分析](./sched_ext/scx_nest.md)
+- [scx_p2dq 调度器分析](./sched_ext/scx_p2dq.md)
 
 ## EEVDF 算法
 
