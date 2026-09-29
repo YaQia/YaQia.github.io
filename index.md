@@ -28,6 +28,9 @@ columns:
       - title: 调度器
         link: /kernel/scheduling/
         details: sched_ext 可插拔框架、EEVDF 与实时调度数据结构
+      - title: 内存管理
+        link: /kernel/mm/
+        details: page/folio、匿名页与写时复制（COW）
       - title: KVM 虚拟机
         link: /kernel/kvm/
         details: 克隆注意事项与 gdb 调试 libvirt/KVM 内核
