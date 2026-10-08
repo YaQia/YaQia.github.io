@@ -130,6 +130,24 @@
 }
 
 /**
+ * Component: Image caption
+ * 独占一段且 alt 非空的图片会渲染成 <figure class="image-figure">，
+ * 图注（alt 文本）显示在图片正下方。见 .vitepress/image-caption.ts。
+ * -------------------------------------------------------------------------- */
+
+.image-figure {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.image-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--vp-c-text-2);
+}
+
+/**
  * Component: Algolia
  * -------------------------------------------------------------------------- */
 

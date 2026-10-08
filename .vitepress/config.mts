@@ -1,5 +1,6 @@
 import { defineConfig } from "vitepress";
 import { autoSidebar, autoNav } from "./sidebar";
+import { imageCaption } from "./image-caption";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -7,6 +8,10 @@ export default defineConfig({
   description: "各种各样的知识，操作系统、云计算、机器学习，甚至是前端...",
   markdown: {
     math: true,
+    config: (md) => {
+      // ![图注](图片) => 图片下方显示 <figcaption>，图注取 alt 文本。
+      md.use(imageCaption);
+    },
   },
   themeConfig: {
     // nav 与 sidebar 均由文件系统自动生成，见 sidebar.ts。
