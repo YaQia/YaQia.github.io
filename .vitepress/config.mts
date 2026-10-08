@@ -9,7 +9,7 @@ export default defineConfig({
   markdown: {
     math: true,
     config: (md) => {
-      // ![图注](图片) => 图片下方显示 <figcaption>，图注取 alt 文本。
+      // 独立成行的图片居中；alt 非空时同时作为 <figcaption> 图注。
       md.use(imageCaption);
     },
   },

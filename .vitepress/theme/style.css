@@ -131,13 +131,20 @@
 
 /**
  * Component: Image caption
- * 独占一段且 alt 非空的图片会渲染成 <figure class="image-figure">，
- * 图注（alt 文本）显示在图片正下方。见 .vitepress/image-caption.ts。
+ * 独占一段的图片会渲染成 <figure class="image-figure"> 并居中；
+ * alt 非空时，alt 文本作为图注显示在图片正下方。
+ * 见 .vitepress/image-caption.ts。
  * -------------------------------------------------------------------------- */
 
 .image-figure {
   margin: 1.5rem 0;
   text-align: center;
+}
+
+/* VitePress 默认 img { display: block }，块级图片需用 auto 外边距居中。 */
+.image-figure img {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .image-figure figcaption {
