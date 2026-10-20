@@ -4,7 +4,8 @@ import { imageCaption } from "./image-caption";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "Ethan Yao's Blogs",
+  lang: "zh-CN",
+  title: "Yao Yiqi's Blogs",
   description: "各种各样的知识，操作系统、云计算、机器学习，甚至是前端...",
   markdown: {
     math: true,
