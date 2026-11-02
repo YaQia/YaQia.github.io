@@ -1,4 +1,4 @@
-# 两个和 CPU 最大值有关的概念
+# scx_bpf_nr_cpu_ids 和 scx_bpf_nr_cids 究竟有什么区别？
 
 最近，我在看 `scx_qmap.bpf.c` 的时候碰到了一个比较奇怪的东西：
 
