@@ -4,11 +4,13 @@
 
 - [sched_ext简介](./overview.md)
 
-## sched_ext的内核代码分析
+## sched_ext的典型机制分析
 
 - [sched_ext的初始化过程](./initialization.md)
 
 - [需要改动的数据结构](./data-structures.md)
+
+- [sub scheduler 调度器树状结构](./sub-scheduler.md)
 
 ## sched_ext典型调度器分析
 
