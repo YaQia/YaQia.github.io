@@ -92,7 +92,7 @@ zcat /proc/config.gz > .config      # 仅对Arch系发行版
 make CC=clang -j(nproc) # fish写法，在bash是-j$(nproc)
 ```
 
-> Tips: 关于如何让Linux内核编译时生成`compile_commands.json`，请看我的[这一篇博客](/blogs/building_linux_kernel)
+> Tips: 关于如何让Linux内核编译时生成`compile_commands.json`，请看我的[这一篇博客](/kernel/tools/compile_commands_json)
 
 除了编译内核外，还需要编译`tools/sched_ext`的代码，这里面的代码才是`sched_ext`自定义调度器逻辑实现的部分
 
